@@ -5,7 +5,7 @@ import 'package:PiliSuper/models/common/image_type.dart';
 import 'package:PiliSuper/models/dynamics/up.dart';
 import 'package:PiliSuper/pages/dynamics/controller.dart';
 import 'package:PiliSuper/pages/live_follow/view.dart';
-import 'package:PiliSuper/utils/account.dart';
+import 'package:PiliSuper/utils/accounts.dart';
 import 'package:PiliSuper/utils/feed_back.dart';
 import 'package:PiliSuper/utils/page_utils.dart';
 import 'package:PiliSuper/utils/utils.dart';
