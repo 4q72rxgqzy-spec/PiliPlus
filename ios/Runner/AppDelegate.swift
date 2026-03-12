@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import fl_pip
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -8,10 +9,14 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     application.applicationSupportsShakeToEdit = false // Disable shake to undo
+    GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+  override func registerPlugin(_ registry: FlutterPluginRegistry) {
+    GeneratedPluginRegistrant.register(with: registry)
   }
 }
