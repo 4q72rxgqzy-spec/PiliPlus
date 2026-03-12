@@ -51,6 +51,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+				<!-- 这里fl_pip高几率会出问题（毕竟从栈顶改成栈内 -->
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
