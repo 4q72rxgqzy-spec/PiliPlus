@@ -31,19 +31,20 @@ class MainActivity : AudioServiceActivity() {
     private var isFoldable = false
     private val isTV = BuildConfig.IS_TV
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (isTV && isVolumeDpad(keyCode)) return true
-        return super.onKeyDown(keyCode, event)
-    }
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (isTV && isVolumeDpad(keyCode)) return true
-        return super.onKeyUp(keyCode, event)
-    }
-
-    private fun isVolumeDpad(keyCode: Int): Boolean {
-        return keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
-                keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (isTV) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP,
+                KeyEvent.KEYCODE_DPAD_DOWN,
+                KeyEvent.KEYCODE_VOLUME_UP,
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    // 直接发给 FlutterView，绕过 AudioServiceActivity 的音量处理
+                    window.superDispatchKeyEvent(event)
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
