@@ -2628,12 +2628,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       return true;
     } else if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
-      if (controlsVisible) return false;
       if (!ctr.isLive) {
-        final offset = key == LogicalKeyboardKey.arrowLeft
-            ? const Duration(seconds: -10)
-            : const Duration(seconds: 10);
-        ctr.seekTo(ctr.position + offset);
+        final seconds = key == LogicalKeyboardKey.arrowLeft ? -10 : 10;
+        ctr.seekTo(ctr.position + Duration(seconds: seconds));
       }
       ctr.controls = true;
       return true;
