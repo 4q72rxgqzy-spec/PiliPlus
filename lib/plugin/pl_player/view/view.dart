@@ -2594,8 +2594,6 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         _showSpeedIndicator.value = null;
         return true;
       }
-      // 控制栏显示时放行给焦点系统
-      if (controlsVisible) return false;
       if (ctr.playerStatus.isPlaying) {
         ctr.pause();
       } else {
@@ -2616,8 +2614,6 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         ctr.setPlaybackSpeed(boostedSpeed);
         _showSpeedIndicator.value = boostedSpeed;
       }
-      // 控制栏显示时放行 KeyDown 给焦点系统（按钮点击）
-      if (controlsVisible && event is! KeyRepeatEvent) return false;
       return true;
     } else if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {

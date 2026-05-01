@@ -32,13 +32,14 @@ class MainActivity : AudioServiceActivity() {
     private val isTV = BuildConfig.IS_TV
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        android.util.Log.d("PiliTV", "dispatchKeyEvent: isTV=$isTV keyCode=${event.keyCode} action=${event.action} DPAD_UP=${KeyEvent.KEYCODE_DPAD_UP} DPAD_DOWN=${KeyEvent.KEYCODE_DPAD_DOWN} VOL_UP=${KeyEvent.KEYCODE_VOLUME_UP} VOL_DOWN=${KeyEvent.KEYCODE_VOLUME_DOWN}")
         if (isTV) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP,
                 KeyEvent.KEYCODE_DPAD_DOWN,
                 KeyEvent.KEYCODE_VOLUME_UP,
                 KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                    // 直接发给 FlutterView，绕过 AudioServiceActivity 的音量处理
+                    android.util.Log.d("PiliTV", "INTERCEPTED keyCode=${event.keyCode}")
                     window.superDispatchKeyEvent(event)
                     return true
                 }
