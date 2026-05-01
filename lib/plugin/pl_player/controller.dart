@@ -766,10 +766,7 @@ class PlPlayerController with BlockConfigMixin {
   Future<Player> _initPlayer() async {
     assert(_videoPlayerController == null);
     final Map<String, String> opt = {};
-    if (PlatformUtils.isTV) {
-      // TV: use safe defaults only
-      opt['volume-max'] = '100';
-    } else {
+    if (!PlatformUtils.isTV) {
       opt['video-sync'] = Pref.videoSync;
       if (Platform.isAndroid) {
         opt['volume-max'] = '100';
@@ -856,11 +853,11 @@ class PlPlayerController with BlockConfigMixin {
     if (dataSource.audioSource case final audio? when (audio.isNotEmpty)) {
       if (onlyPlayAudio.value) {
         video = audio;
-      } else {
+      } else if (!PlatformUtils.isTV) {
         extras['audio-files'] =
             '"${Platform.isWindows ? audio.replaceAll(';', r'\;') : audio.replaceAll(':', r'\:')}"';
       }
-      if (enableAudioNormalization) {
+      if (!PlatformUtils.isTV && enableAudioNormalization) {
         final String audioNormalization;
         if (volume != null && volume.isNotEmpty) {
           audioNormalization = _audioNormalizationParam.replaceFirstMapped(
