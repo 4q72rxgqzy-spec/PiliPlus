@@ -2696,20 +2696,32 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       return true;
     }
 
+    // OK KeyUp：暂停/播放（只在非长按时）
+    if (isSelect && event is KeyUpEvent) {
+      if (!_isLongPressing) {
+        if (_panelRow.value == -1) {
+          if (ctr.playerStatus.isPlaying) {
+            ctr.pause();
+            _showPanel();
+          } else {
+            ctr.play();
+            _panelRow.value = -1;
+          }
+        } else {
+          _onKey('ok');
+        }
+      }
+      return true;
+    }
+
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return isSelect;
+      return false;
     }
 
     // === 面板隐藏时 ===
     if (_panelRow.value == -1) {
       if (isSelect) {
-        if (ctr.playerStatus.isPlaying) {
-          ctr.pause();
-          _showPanel();
-        } else {
-          ctr.play();
-        }
-        return true;
+        return true; // 消费 KeyDown，等 KeyUp 处理
       } else if (key == LogicalKeyboardKey.arrowLeft ||
           key == LogicalKeyboardKey.arrowRight) {
         if (!ctr.isLive) {
@@ -2732,8 +2744,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       _panelRow.value = -1;
       return true;
     } else if (isSelect) {
-      _onKey('ok');
-      return true;
+      return true; // 消费 KeyDown，KeyUp 在上面处理
     } else if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
       if (row == 0 && !ctr.isLive) {
@@ -2760,6 +2771,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   void _handleNativeKey(String key, String action, bool isRepeat) {
+    Utils.reportError('TV_NATIVE: key=$key action=$action panel=${_panelRow.value} subMenu=$_isSubMenuOpen');
     if (_isSubMenuOpen) {
       if (action == 'down') _subMenuKeyCallback?.call(key);
       return;
@@ -2790,13 +2802,14 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
     _registerNativeHandler();
     _channel.invokeMethod('setPlayerActive', {'active': true});
+    Utils.reportError('TV_INIT: initState hashCode=$hashCode');
   }
 
   @override
   void didUpdateWidget(covariant _TVPlayerKeyHandler oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 切集时重新注册，确保 callback 有效
     _registerNativeHandler();
+    Utils.reportError('TV_INIT: didUpdateWidget hashCode=$hashCode');
   }
 
   void _registerNativeHandler() {
@@ -2807,11 +2820,11 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   void dispose() {
     _hideTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
-    // 只清理自己注册的回调，不影响新实例
-    if (TVKeyHandler.instance?._callback == _handleNativeKey) {
+    final isOurs = TVKeyHandler.instance?._callback == _handleNativeKey;
+    Utils.reportError('TV_INIT: dispose hashCode=$hashCode isOurs=$isOurs');
+    if (isOurs) {
       TVKeyHandler.instance?._callback = null;
       TVKeyHandler.instance = null;
-      // 只在没有新实例时才关闭 playerActive
       _channel.invokeMethod('setPlayerActive', {'active': false});
     }
     _showSpeedIndicator.dispose();
