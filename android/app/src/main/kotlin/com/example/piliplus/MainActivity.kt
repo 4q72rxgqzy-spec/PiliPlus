@@ -29,7 +29,9 @@ import java.io.File
 class MainActivity : AudioServiceActivity() {
     private lateinit var methodChannel: MethodChannel
     private var isFoldable = false
-    private var isTV = false
+    private val isTV: Boolean by lazy {
+        packageManager.hasSystemFeature("android.software.leanback")
+    }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (isTV) {
@@ -50,11 +52,6 @@ class MainActivity : AudioServiceActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "PiliPlus")
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
-                "setTVMode" -> {
-                    isTV = call.argument<Boolean>("isTV") ?: false
-                    result.success(null)
-                    return@setMethodCallHandler
-                }
                 "back" -> back();
 
                 "biliSendCommAntifraud" -> {

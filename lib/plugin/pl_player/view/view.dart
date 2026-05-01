@@ -2566,27 +2566,45 @@ class _TVPlayerKeyHandler extends StatefulWidget {
 
 class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   PlPlayerController get ctr => widget.plPlayerController;
+  bool _isLongPressing = false;
+  double _originalSpeed = 1.0;
 
   bool _handleKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      if (event is KeyUpEvent &&
-          event.logicalKey == LogicalKeyboardKey.select) {
-        ctr.setPlaybackSpeed(ctr.playbackSpeed);
-      }
-      return false;
-    }
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.select ||
-        key == LogicalKeyboardKey.enter) {
-      if (event is KeyRepeatEvent) {
-        ctr.setPlaybackSpeed(ctr.playbackSpeed + 1.0);
+    final isSelect = key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter;
+
+    // OK 键释放
+    if (event is KeyUpEvent && isSelect) {
+      if (_isLongPressing) {
+        // 长按结束，恢复原速
+        ctr.setPlaybackSpeed(_originalSpeed);
+        _isLongPressing = false;
       } else {
+        // 短按，切换播放/暂停
         if (ctr.playerStatus.isPlaying) {
           ctr.pause();
         } else {
           ctr.play();
         }
       }
+      return true;
+    }
+
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return false;
+    }
+
+    if (isSelect) {
+      if (event is KeyRepeatEvent) {
+        // 长按中，加速
+        if (!_isLongPressing) {
+          _isLongPressing = true;
+          _originalSpeed = ctr.playbackSpeed;
+          ctr.setPlaybackSpeed(_originalSpeed + 1.0);
+        }
+      }
+      // KeyDownEvent 不做任何操作，等 KeyUp 或 KeyRepeat
       return true;
     } else if (key == LogicalKeyboardKey.arrowLeft) {
       ctr.seekTo(ctr.position - const Duration(seconds: 10));
