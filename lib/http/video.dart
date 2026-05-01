@@ -218,8 +218,8 @@ abstract final class VideoHttp {
       'season_id': ?seasonId,
       'cid': cid,
       'qn': qn ?? 80,
-      // 获取所有格式的视频(DASH), 包含完整acceptQuality/acceptDesc
-      'fnval': 4048,
+      // TV用合并流(fnval=1)因为audio-files参数在XGIMI设备上导致invalid parameter
+      'fnval': PlatformUtils.isTV ? 1 : 4048,
       'fourk': 1,
       'fnver': 0,
       'voice_balance': voiceBalance ? 1 : 0,
