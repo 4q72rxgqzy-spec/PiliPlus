@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/pages_tv/tv_app.dart';
+import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
@@ -87,8 +88,13 @@ void main() async {
   RequestUtils.syncHistoryStatus();
 
   const MethodChannel('PiliPlus').setMethodCallHandler((call) async {
-    if (call.method == 'keyDebug') {
-      Utils.reportError(call.arguments as String);
+    if (call.method == 'tvKey') {
+      final args = call.arguments as Map;
+      TVKeyHandler.instance?.handleNativeKey(
+        args['key'] as String,
+        args['action'] as String,
+        args['isRepeat'] as bool,
+      );
     }
   });
 

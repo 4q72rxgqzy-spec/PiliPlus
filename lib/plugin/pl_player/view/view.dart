@@ -2557,6 +2557,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   }
 }
 
+class TVKeyHandler {
+  static TVKeyHandler? instance;
+
+  void Function(String key, String action, bool isRepeat)? _callback;
+
+  void handleNativeKey(String key, String action, bool isRepeat) {
+    _callback?.call(key, action, isRepeat);
+  }
+}
+
 class _TVPlayerKeyHandler extends StatefulWidget {
   const _TVPlayerKeyHandler({
     required this.plPlayerController,
@@ -2586,9 +2596,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         key == LogicalKeyboardKey.audioVolumeDown;
     final controlsVisible = ctr.showControls.value;
 
-    if (event is KeyDownEvent) {
-      Utils.reportError('TV_KEY: ${key.keyLabel} (${key.keyId}) PlatformUtils.isTV=${PlatformUtils.isTV}');
-    }
+    // 上下键已通过 Android MethodChannel 处理，这里只处理其他键
 
     // OK 键释放
     if (event is KeyUpEvent && isSelect) {
@@ -2640,15 +2648,26 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     return false;
   }
 
+  void _handleNativeKey(String key, String action, bool isRepeat) {
+    if (key == 'arrowUp' || key == 'arrowDown') {
+      if (action == 'down') {
+        ctr.controls = !ctr.showControls.value;
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+    TVKeyHandler.instance = TVKeyHandler().._callback = _handleNativeKey;
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    TVKeyHandler.instance?._callback = null;
+    TVKeyHandler.instance = null;
     _showSpeedIndicator.dispose();
     super.dispose();
   }

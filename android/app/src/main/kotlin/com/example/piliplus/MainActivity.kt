@@ -32,16 +32,25 @@ class MainActivity : AudioServiceActivity() {
     private val isTV = BuildConfig.IS_TV
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN && (event.keyCode == KeyEvent.KEYCODE_DPAD_UP || event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN)) {
-            methodChannel.invokeMethod("keyDebug", "Android: keyCode=${event.keyCode} isTV=$isTV BuildConfig.IS_TV=${BuildConfig.IS_TV}")
-        }
         if (isTV) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP,
                 KeyEvent.KEYCODE_DPAD_DOWN,
                 KeyEvent.KEYCODE_VOLUME_UP,
                 KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                    window.superDispatchKeyEvent(event)
+                    // 完全拦截，不调 window.superDispatchKeyEvent（XGIMI 系统在那里触发音量）
+                    // 通过 MethodChannel 手动发给 Flutter
+                    val action = when (event.action) {
+                        KeyEvent.ACTION_DOWN -> "down"
+                        KeyEvent.ACTION_UP -> "up"
+                        else -> return true
+                    }
+                    val key = when (event.keyCode) {
+                        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_VOLUME_UP -> "arrowUp"
+                        else -> "arrowDown"
+                    }
+                    val isRepeat = event.repeatCount > 0
+                    methodChannel.invokeMethod("tvKey", mapOf("key" to key, "action" to action, "isRepeat" to isRepeat))
                     return true
                 }
             }
