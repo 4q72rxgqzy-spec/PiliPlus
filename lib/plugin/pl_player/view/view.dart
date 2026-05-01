@@ -2624,8 +2624,10 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       if (event is KeyDownEvent) ctr.hideTaskControls();
 
       if (_onProgressBar) {
-        // 光标在进度条上：左右快进快退，OK播放暂停，上下切到按钮
-        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return true;
+        // 光标在进度条上：左右快进快退，OK播放暂停
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return isSelect; // OK KeyUp 消费，其他放行
+        }
         if (isSelect) {
           if (ctr.playerStatus.isPlaying) {
             ctr.pause();
@@ -2640,12 +2642,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
             ctr.seekTo(ctr.position + Duration(seconds: seconds));
           }
           return true;
-        } else if (key == LogicalKeyboardKey.arrowUp ||
-            key == LogicalKeyboardKey.arrowDown) {
-          // 不在这里处理，由 _handleNativeKey 处理上下键
-          return true;
         }
-        return true;
+        // 其他键（返回键等）放行
+        return false;
       } else {
         // 光标在按钮上：全部交给 Flutter 焦点系统
         return false;
@@ -2688,10 +2687,16 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         ctr.controls = true;
         _onProgressBar = true;
       } else if (_onProgressBar) {
-        // 光标在进度条上：切换到按钮模式
+        // 光标在进度条上：切换到按钮模式，聚焦第一个可聚焦按钮
         _onProgressBar = false;
         ctr.hideTaskControls();
-        // 把焦点给到播放/暂停按钮（由 autofocus 处理）
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            // 遍历找到第一个可聚焦的按钮并聚焦
+            final scope = FocusScope.of(context);
+            scope.nextFocus();
+          }
+        });
       } else {
         // 光标在按钮上：在按钮间移动
         ctr.hideTaskControls();
