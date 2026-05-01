@@ -32,7 +32,7 @@ class MainActivity : AudioServiceActivity() {
     private val isTV: Boolean by lazy {
         try {
             val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
-            appInfo.metaData?.getBoolean("is_tv_mode", false) ?: false
+            appInfo.metaData?.getString("is_tv_mode") == "true"
         } catch (_: Exception) {
             false
         }

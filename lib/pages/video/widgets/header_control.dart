@@ -1780,7 +1780,7 @@ class HeaderControlState extends State<HeaderControl>
                 ),
               title,
               // show current datetime
-              ...?timeBatteryWidgets,
+              if (!PlatformUtils.isTV) ...?timeBatteryWidgets,
               if (PlatformUtils.isDesktop && !plPlayerController.isDesktopPip)
                 Obx(() {
                   final isAlwaysOnTop = plPlayerController.isAlwaysOnTop.value;
