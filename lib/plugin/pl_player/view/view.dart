@@ -2585,6 +2585,8 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   bool _isLongPressing = false;
   double _originalSpeed = 1.0;
   final _showSpeedIndicator = ValueNotifier<double?>(null);
+  // true = 光标在进度条上（默认），false = 光标在按钮上
+  bool _onProgressBar = true;
 
   bool _handleKeyEvent(KeyEvent event) {
     final key = event.logicalKey;
@@ -2593,40 +2595,65 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
 
     // 菜单键：切换控制栏
     if (key == LogicalKeyboardKey.contextMenu && event is KeyDownEvent) {
-      ctr.controls = !ctr.showControls.value;
+      final show = !ctr.showControls.value;
+      ctr.controls = show;
+      if (show) _onProgressBar = true;
       return true;
     }
 
-    // 控制栏显示时：长按加速 + 其余交给 Flutter 焦点系统
-    if (ctr.showControls.value) {
-      if (isSelect) {
-        if (event is KeyUpEvent && _isLongPressing) {
-          ctr.setPlaybackSpeed(_originalSpeed);
-          _isLongPressing = false;
-          _showSpeedIndicator.value = null;
-          return true;
-        }
-        if (event is KeyRepeatEvent && !_isLongPressing) {
-          _isLongPressing = true;
-          _originalSpeed = ctr.playbackSpeed;
-          final boostedSpeed = _originalSpeed + 1.0;
-          ctr.setPlaybackSpeed(boostedSpeed);
-          _showSpeedIndicator.value = boostedSpeed;
-          return true;
-        }
+    // 长按 OK 加速（任何时候都处理）
+    if (isSelect && event is KeyRepeatEvent) {
+      if (!_isLongPressing) {
+        _isLongPressing = true;
+        _originalSpeed = ctr.playbackSpeed;
+        final boostedSpeed = _originalSpeed + 1.0;
+        ctr.setPlaybackSpeed(boostedSpeed);
+        _showSpeedIndicator.value = boostedSpeed;
       }
-      if (event is KeyDownEvent) ctr.hideTaskControls();
-      return false;
+      return true;
+    }
+    if (isSelect && event is KeyUpEvent && _isLongPressing) {
+      ctr.setPlaybackSpeed(_originalSpeed);
+      _isLongPressing = false;
+      _showSpeedIndicator.value = null;
+      return true;
     }
 
-    // 控制栏隐藏时：拦截所有按键
-    if (event is KeyUpEvent && isSelect) {
-      if (_isLongPressing) {
-        ctr.setPlaybackSpeed(_originalSpeed);
-        _isLongPressing = false;
-        _showSpeedIndicator.value = null;
+    // 控制栏显示时
+    if (ctr.showControls.value) {
+      if (event is KeyDownEvent) ctr.hideTaskControls();
+
+      if (_onProgressBar) {
+        // 光标在进度条上：左右快进快退，OK播放暂停，上下切到按钮
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return true;
+        if (isSelect) {
+          if (ctr.playerStatus.isPlaying) {
+            ctr.pause();
+          } else {
+            ctr.play();
+          }
+          return true;
+        } else if (key == LogicalKeyboardKey.arrowLeft ||
+            key == LogicalKeyboardKey.arrowRight) {
+          if (!ctr.isLive) {
+            final seconds = key == LogicalKeyboardKey.arrowLeft ? -10 : 10;
+            ctr.seekTo(ctr.position + Duration(seconds: seconds));
+          }
+          return true;
+        } else if (key == LogicalKeyboardKey.arrowUp ||
+            key == LogicalKeyboardKey.arrowDown) {
+          // 不在这里处理，由 _handleNativeKey 处理上下键
+          return true;
+        }
         return true;
+      } else {
+        // 光标在按钮上：全部交给 Flutter 焦点系统
+        return false;
       }
+    }
+
+    // 控制栏隐藏时
+    if (event is KeyUpEvent && isSelect) {
       if (ctr.playerStatus.isPlaying) {
         ctr.pause();
       } else {
@@ -2640,13 +2667,6 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     }
 
     if (isSelect) {
-      if (event is KeyRepeatEvent && !_isLongPressing) {
-        _isLongPressing = true;
-        _originalSpeed = ctr.playbackSpeed;
-        final boostedSpeed = _originalSpeed + 1.0;
-        ctr.setPlaybackSpeed(boostedSpeed);
-        _showSpeedIndicator.value = boostedSpeed;
-      }
       return true;
     } else if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
@@ -2664,9 +2684,16 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     if (action != 'down') return;
     if (key == 'arrowUp' || key == 'arrowDown') {
       if (!ctr.showControls.value) {
+        // 控制栏隐藏：显示控制栏，光标默认在进度条上
         ctr.controls = true;
+        _onProgressBar = true;
+      } else if (_onProgressBar) {
+        // 光标在进度条上：切换到按钮模式
+        _onProgressBar = false;
+        ctr.hideTaskControls();
+        // 把焦点给到播放/暂停按钮（由 autofocus 处理）
       } else {
-        // 控制栏显示时：移动焦点并重置自动隐藏
+        // 光标在按钮上：在按钮间移动
         ctr.hideTaskControls();
         final direction = key == 'arrowUp'
             ? TraversalDirection.up
@@ -2678,16 +2705,23 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
 
   static const _channel = MethodChannel('PiliPlus');
 
+  Worker? _controlsWorker;
+
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
     TVKeyHandler.instance = TVKeyHandler().._callback = _handleNativeKey;
     _channel.invokeMethod('setPlayerActive', {'active': true});
+    // 控制栏隐藏时重置到进度条模式
+    _controlsWorker = ever(ctr.showControls, (visible) {
+      if (!visible) _onProgressBar = true;
+    });
   }
 
   @override
   void dispose() {
+    _controlsWorker?.dispose();
     _channel.invokeMethod('setPlayerActive', {'active': false});
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     TVKeyHandler.instance?._callback = null;
