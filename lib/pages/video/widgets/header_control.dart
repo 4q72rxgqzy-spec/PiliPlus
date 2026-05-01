@@ -1731,7 +1731,12 @@ class HeaderControlState extends State<HeaderControl>
 
     const btnWidth = 40.0;
     const btnHeight = 34.0;
-    const btnStyle = ButtonStyle(padding: WidgetStatePropertyAll(.zero));
+    final btnStyle = ButtonStyle(
+      padding: const WidgetStatePropertyAll(.zero),
+      overlayColor: PlatformUtils.isTV
+          ? const WidgetStatePropertyAll(Colors.white24)
+          : null,
+    );
 
     return AppBar(
       elevation: 0,

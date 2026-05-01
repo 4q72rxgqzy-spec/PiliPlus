@@ -2624,26 +2624,22 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       if (event is KeyDownEvent) ctr.hideTaskControls();
 
       if (_onProgressBar) {
-        // 光标在进度条上：左右快进快退，OK播放暂停
-        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-          return isSelect; // OK KeyUp 消费，其他放行
-        }
+        // 光标在进度条上
         if (isSelect) {
-          if (ctr.playerStatus.isPlaying) {
-            ctr.pause();
-          } else {
-            ctr.play();
+          // 统一在 KeyUp 处理播放/暂停，防止 KeyDown/KeyUp 跨模式
+          if (event is KeyUpEvent) {
+            _togglePlay();
           }
           return true;
-        } else if (key == LogicalKeyboardKey.arrowLeft ||
-            key == LogicalKeyboardKey.arrowRight) {
+        } else if ((key == LogicalKeyboardKey.arrowLeft ||
+                key == LogicalKeyboardKey.arrowRight) &&
+            (event is KeyDownEvent || event is KeyRepeatEvent)) {
           if (!ctr.isLive) {
             final seconds = key == LogicalKeyboardKey.arrowLeft ? -10 : 10;
             ctr.seekTo(ctr.position + Duration(seconds: seconds));
           }
           return true;
         }
-        // 其他键（返回键等）放行
         return false;
       } else {
         // 光标在按钮上：全部交给 Flutter 焦点系统
@@ -2652,11 +2648,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     }
 
     // 控制栏隐藏时
-    if (event is KeyUpEvent && isSelect) {
-      if (ctr.playerStatus.isPlaying) {
-        ctr.pause();
-      } else {
-        ctr.play();
+    if (isSelect) {
+      if (event is KeyUpEvent) {
+        _togglePlay();
       }
       return true;
     }
@@ -2665,9 +2659,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       return false;
     }
 
-    if (isSelect) {
-      return true;
-    } else if (key == LogicalKeyboardKey.arrowLeft ||
+    if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
       if (!ctr.isLive) {
         final seconds = key == LogicalKeyboardKey.arrowLeft ? -10 : 10;
@@ -2679,6 +2671,14 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     return false;
   }
 
+  void _togglePlay() {
+    if (ctr.playerStatus.isPlaying) {
+      ctr.pause();
+    } else {
+      ctr.play();
+    }
+  }
+
   void _handleNativeKey(String key, String action, bool isRepeat) {
     if (action != 'down') return;
     if (key == 'arrowUp' || key == 'arrowDown') {
@@ -2687,14 +2687,19 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         ctr.controls = true;
         _onProgressBar = true;
       } else if (_onProgressBar) {
-        // 光标在进度条上：切换到按钮模式，聚焦第一个可聚焦按钮
+        // 光标在进度条上：切换到按钮模式
         _onProgressBar = false;
         ctr.hideTaskControls();
+        // 聚焦第一个可聚焦按钮
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            // 遍历找到第一个可聚焦的按钮并聚焦
-            final scope = FocusScope.of(context);
-            scope.nextFocus();
+          if (!mounted) return;
+          final scope = FocusScope.of(context);
+          // 先尝试 nextFocus，如果失败则遍历找第一个可聚焦节点
+          if (!scope.nextFocus()) {
+            scope.requestFocus();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) scope.nextFocus();
+            });
           }
         });
       } else {
