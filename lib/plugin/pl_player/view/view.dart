@@ -3006,12 +3006,14 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       ad = ['1080P 高清', '720P 高清', '480P 清晰', '360P 流畅'];
     }
     ad ??= [];
+    final qualities = aq!;
+    final descs = ad!;
     final result = await _showSidePanel<int>(
       title: '画质',
-      options: List.generate(aq.length, (i) => _TVDialogOption(
-        label: i < ad!.length ? '${ad[i]}' : '未知',
-        value: aq[i],
-        isSelected: vdc.currentVideoQa.value?.code == aq[i],
+      options: List.generate(qualities.length, (i) => _TVDialogOption(
+        label: i < descs.length ? '${descs[i]}' : '未知',
+        value: qualities[i],
+        isSelected: vdc.currentVideoQa.value?.code == qualities[i],
       )),
     );
     if (result != null) {
