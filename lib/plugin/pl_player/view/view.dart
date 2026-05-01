@@ -2832,6 +2832,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
 
     final completer = Completer<T?>();
     late StateSetter setSheetState;
+    bool handled = false;
 
     _subMenuKeyCallback = (key) {
       if (key == 'arrowUp') {
@@ -2850,8 +2851,6 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         }
       }
     };
-
-    bool handled = false;
 
     showGeneralDialog(
       context: context,
