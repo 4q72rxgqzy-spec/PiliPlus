@@ -2747,6 +2747,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       return true; // 消费 KeyDown，KeyUp 在上面处理
     } else if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
+      Utils.reportError('TV_LR: row=$row key=${key.keyLabel}');
       if (row == 0 && !ctr.isLive) {
         // 进度条行：快进快退
         final s = key == LogicalKeyboardKey.arrowLeft ? -10 : 10;
