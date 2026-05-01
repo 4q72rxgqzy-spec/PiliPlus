@@ -50,6 +50,9 @@ void main() async {
 
   PlatformUtils.isTV = true;
 
+  // 通知 Android 原生层进入 TV 模式（拦截 D-pad 音量映射）
+  const MethodChannel('PiliPlus').invokeMethod('setTVMode', {'isTV': true});
+
   await _initAppPath();
   try {
     await GStorage.init();

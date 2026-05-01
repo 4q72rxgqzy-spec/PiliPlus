@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
+import android.view.KeyEvent
 import android.view.WindowManager.LayoutParams
 import androidx.core.net.toUri
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -28,6 +29,22 @@ import java.io.File
 class MainActivity : AudioServiceActivity() {
     private lateinit var methodChannel: MethodChannel
     private var isFoldable = false
+    private var isTV = false
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (isTV && (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN)) {
+            // Prevent system from treating D-pad as volume, let Flutter handle it
+            return super.onKeyDown(keyCode, event)
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (isTV && (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN)) {
+            return super.onKeyUp(keyCode, event)
+        }
+        return super.onKeyUp(keyCode, event)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -35,6 +52,11 @@ class MainActivity : AudioServiceActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "PiliPlus")
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "setTVMode" -> {
+                    isTV = call.argument<Boolean>("isTV") ?: false
+                    result.success(null)
+                    return@setMethodCallHandler
+                }
                 "back" -> back();
 
                 "biliSendCommAntifraud" -> {

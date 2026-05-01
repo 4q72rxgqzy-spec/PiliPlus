@@ -2596,11 +2596,11 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       ctr.seekTo(ctr.position + const Duration(seconds: 10));
       ctr.controls = true;
       return true;
-    } else if (key == LogicalKeyboardKey.arrowUp) {
-      ctr.controls = true;
+    } else if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown) {
+      ctr.controls = !ctr.showControls.value;
       return true;
-    } else if (key == LogicalKeyboardKey.arrowDown ||
-        key == LogicalKeyboardKey.contextMenu) {
+    } else if (key == LogicalKeyboardKey.contextMenu) {
       widget.onMenu();
       return true;
     }
