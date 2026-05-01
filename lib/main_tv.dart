@@ -97,7 +97,9 @@ void main() async {
       if (handler != null) {
         handler.handleNativeKey(key, action, isRepeat);
       } else {
-        // 播放器未激活时，执行默认行为
+        // 播放器未激活，关闭拦截并执行默认行为
+        const MethodChannel('PiliPlus')
+            .invokeMethod('setPlayerActive', {'active': false});
         if (key == 'back' && action == 'down') {
           Get.back();
         }
