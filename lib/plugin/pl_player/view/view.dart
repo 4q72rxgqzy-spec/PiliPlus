@@ -3030,7 +3030,13 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         listenable: Listenable.merge([_panelRow, _btnIndex]),
         builder: (context, _) {
           if (_panelRow.value == -1) return const SizedBox.shrink();
-          return Obx(() => _buildPanel());
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) _panelRow.value = -1;
+            },
+            child: Obx(() => _buildPanel()),
+          );
         },
       ),
     ],
@@ -3066,14 +3072,17 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
             ),
             const Spacer(),
             // 进度条（高亮显示当前行）
-            Container(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
               margin: const EdgeInsets.symmetric(horizontal: 24),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
               decoration: BoxDecoration(
-                border: row == 0
-                    ? Border.all(color: Colors.white, width: 2)
-                    : null,
+                border: Border.all(
+                  color: row == 0 ? Colors.lightBlueAccent : Colors.transparent,
+                  width: 2,
+                ),
                 borderRadius: BorderRadius.circular(8),
+                color: row == 0 ? Colors.lightBlueAccent.withValues(alpha: 0.1) : null,
               ),
               child: Column(
                 children: [
@@ -3082,43 +3091,58 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
                     backgroundColor: Colors.white24,
                     minHeight: 4,
                   ),
-                  if (row == 0)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text('← 后退  OK 暂停/播放  前进 →',
-                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      row == 0 ? '← 后退  OK 暂停/播放  前进 →  ↓ 菜单' : '↓ 选择菜单',
+                      style: TextStyle(
+                        color: row == 0 ? Colors.white70 : Colors.white38,
+                        fontSize: 12),
                     ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             // 按钮行
+            if (row == 1)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('↑ 返回进度条',
+                  style: TextStyle(color: Colors.white38, fontSize: 11)),
+              ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(btns.length, (i) {
                 final btn = btns[i];
                 final selected = row == 1 && selBtn == i;
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    border: selected
-                        ? Border.all(color: Colors.white, width: 2)
-                        : null,
-                    borderRadius: BorderRadius.circular(12),
-                    color: selected ? Colors.white24 : null,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(btn.icon, color: Colors.white, size: 26),
-                        const SizedBox(height: 4),
-                        Text(btn.label,
-                          style: const TextStyle(color: Colors.white, fontSize: 11),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ],
+                    border: Border.all(
+                      color: selected ? Colors.lightBlueAccent : (row == 1 ? Colors.white38 : Colors.transparent),
+                      width: selected ? 2 : 1,
                     ),
+                    borderRadius: BorderRadius.circular(12),
+                    color: selected ? Colors.lightBlueAccent.withValues(alpha: 0.2) : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(btn.icon,
+                        color: selected ? Colors.lightBlueAccent : Colors.white,
+                        size: 28),
+                      const SizedBox(height: 6),
+                      Text(btn.label,
+                        style: TextStyle(
+                          color: selected ? Colors.lightBlueAccent : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
                   ),
                 );
               }),
