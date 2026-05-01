@@ -2747,6 +2747,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       return true; // 消费 KeyDown，KeyUp 在上面处理
     } else if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
+      Utils.reportError('TV_LR: row=$row key=${key.keyLabel} hash=$hashCode');
       if (row == 0 && !ctr.isLive) {
         // 进度条行：快进快退
         final s = key == LogicalKeyboardKey.arrowLeft ? -10 : 10;
@@ -2771,6 +2772,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   void _handleNativeKey(String key, String action, bool isRepeat) {
+    Utils.reportError('TV_NATIVE: key=$key action=$action panel=${_panelRow.value} subMenu=$_isSubMenuOpen hash=$hashCode');
     if (_isSubMenuOpen) {
       if (action == 'down') _subMenuKeyCallback?.call(key);
       return;
@@ -2799,12 +2801,14 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
     _registerNativeHandler();
     const MethodChannel('PiliPlus').invokeMethod('setPlayerActive', {'active': true});
+    Utils.reportError('TV_LIFE: initState hash=$hashCode');
   }
 
   @override
   void didUpdateWidget(covariant _TVPlayerKeyHandler oldWidget) {
     super.didUpdateWidget(oldWidget);
     _registerNativeHandler();
+    Utils.reportError('TV_LIFE: didUpdateWidget hash=$hashCode');
   }
 
   void _registerNativeHandler() {
@@ -2815,7 +2819,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   void dispose() {
     _hideTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
-    if (TVKeyHandler.instance?._callback == _handleNativeKey) {
+    final isOurs = TVKeyHandler.instance?._callback == _handleNativeKey;
+    Utils.reportError('TV_LIFE: dispose hash=$hashCode isOurs=$isOurs');
+    if (isOurs) {
       TVKeyHandler.instance?._callback = null;
       TVKeyHandler.instance = null;
     }
