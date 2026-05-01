@@ -2100,8 +2100,8 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-                if (!PlatformUtils.isTV &&
-                    introController case final UgcIntroController ugc)
+                if (!PlatformUtils.isTV)
+                  if (introController case final UgcIntroController ugc)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
