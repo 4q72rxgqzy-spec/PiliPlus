@@ -31,15 +31,15 @@ class MainActivity : AudioServiceActivity() {
     private var isFoldable = false
     private val isTV = BuildConfig.IS_TV
 
+    var playerActive = false
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (isTV) {
+        if (isTV && playerActive) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP,
                 KeyEvent.KEYCODE_DPAD_DOWN,
                 KeyEvent.KEYCODE_VOLUME_UP,
                 KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                    // 完全拦截，不调 window.superDispatchKeyEvent（XGIMI 系统在那里触发音量）
-                    // 通过 MethodChannel 手动发给 Flutter
                     val action = when (event.action) {
                         KeyEvent.ACTION_DOWN -> "down"
                         KeyEvent.ACTION_UP -> "up"
@@ -64,6 +64,11 @@ class MainActivity : AudioServiceActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "PiliPlus")
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "setPlayerActive" -> {
+                    playerActive = call.argument<Boolean>("active") ?: false
+                    result.success(null)
+                    return@setMethodCallHandler
+                }
                 "back" -> back();
 
                 "biliSendCommAntifraud" -> {

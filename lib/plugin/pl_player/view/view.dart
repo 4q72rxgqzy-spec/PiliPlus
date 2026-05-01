@@ -2655,15 +2655,19 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     }
   }
 
+  static const _channel = MethodChannel('PiliPlus');
+
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
     TVKeyHandler.instance = TVKeyHandler().._callback = _handleNativeKey;
+    _channel.invokeMethod('setPlayerActive', {'active': true});
   }
 
   @override
   void dispose() {
+    _channel.invokeMethod('setPlayerActive', {'active': false});
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     TVKeyHandler.instance?._callback = null;
     TVKeyHandler.instance = null;
