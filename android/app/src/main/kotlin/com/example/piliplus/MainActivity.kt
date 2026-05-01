@@ -30,7 +30,12 @@ class MainActivity : AudioServiceActivity() {
     private lateinit var methodChannel: MethodChannel
     private var isFoldable = false
     private val isTV: Boolean by lazy {
-        packageManager.hasSystemFeature("android.software.leanback")
+        try {
+            val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            appInfo.metaData?.getBoolean("is_tv_mode", false) ?: false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

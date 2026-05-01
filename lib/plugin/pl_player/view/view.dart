@@ -2568,6 +2568,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   PlPlayerController get ctr => widget.plPlayerController;
   bool _isLongPressing = false;
   double _originalSpeed = 1.0;
+  final _showSpeedIndicator = ValueNotifier<double?>(null);
 
   bool _handleKeyEvent(KeyEvent event) {
     final key = event.logicalKey;
@@ -2577,9 +2578,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     // OK 键释放
     if (event is KeyUpEvent && isSelect) {
       if (_isLongPressing) {
-        // 长按结束，恢复原速
         ctr.setPlaybackSpeed(_originalSpeed);
         _isLongPressing = false;
+        _showSpeedIndicator.value = null;
       } else {
         // 短按，切换播放/暂停
         if (ctr.playerStatus.isPlaying) {
@@ -2601,7 +2602,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         if (!_isLongPressing) {
           _isLongPressing = true;
           _originalSpeed = ctr.playbackSpeed;
-          ctr.setPlaybackSpeed(_originalSpeed + 1.0);
+          final boostedSpeed = _originalSpeed + 1.0;
+          ctr.setPlaybackSpeed(boostedSpeed);
+          _showSpeedIndicator.value = boostedSpeed;
         }
       }
       // KeyDownEvent 不做任何操作，等 KeyUp 或 KeyRepeat
@@ -2634,9 +2637,40 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    _showSpeedIndicator.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) => Stack(
+        children: [
+          widget.child,
+          ValueListenableBuilder<double?>(
+            valueListenable: _showSpeedIndicator,
+            builder: (context, speed, _) {
+              if (speed == null) return const SizedBox.shrink();
+              return Positioned(
+                right: 24,
+                top: 24,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${speed}x',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      );
 }

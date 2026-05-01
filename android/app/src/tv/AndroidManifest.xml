@@ -8,6 +8,7 @@
         android:required="false" />
 
     <application android:banner="@drawable/tv_banner">
+        <meta-data android:name="is_tv_mode" android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
