@@ -62,6 +62,7 @@ import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:collection/collection.dart';
@@ -2585,6 +2586,7 @@ class _TVPlayerKeyHandler extends StatefulWidget {
 
 class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   PlPlayerController get ctr => widget.plPlayerController;
+  bool _isSubMenuOpen = false;
   bool _isLongPressing = false;
   double _originalSpeed = 1.0;
   final _showSpeedIndicator = ValueNotifier<double?>(null);
@@ -2594,19 +2596,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   final _btnIndex = ValueNotifier<int>(0);
 
   List<_TVBtnItem> get _buttons {
-    final isPlaying = ctr.playerStatus.isPlaying;
     final items = <_TVBtnItem>[
-      _TVBtnItem(Icons.replay_10, '后退10s', () {
-        if (!ctr.isLive) ctr.seekTo(ctr.position - const Duration(seconds: 10));
-      }),
-      _TVBtnItem(
-        isPlaying ? Icons.pause : Icons.play_arrow,
-        isPlaying ? '暂停' : '播放',
-        () => isPlaying ? ctr.pause() : ctr.play(),
-      ),
-      _TVBtnItem(Icons.forward_10, '前进10s', () {
-        if (!ctr.isLive) ctr.seekTo(ctr.position + const Duration(seconds: 10));
-      }),
       _TVBtnItem(Icons.speed, '${ctr.playbackSpeed}x', _showSpeedPicker),
       if (widget.videoDetailController != null)
         _TVBtnItem(
@@ -2616,8 +2606,8 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         ),
       _TVBtnItem(
         ctr.enableShowDanmaku.value ? Icons.subtitles : Icons.subtitles_off,
-        ctr.enableShowDanmaku.value ? '弹幕开' : '弹幕关',
-        () => ctr.enableShowDanmaku.value = !ctr.enableShowDanmaku.value,
+        '弹幕设置',
+        _showDanmakuSettings,
       ),
       _TVBtnItem(Icons.aspect_ratio, '画面比例', _showFitPicker),
     ];
@@ -2635,7 +2625,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
 
   void _showPanel() {
     _panelRow.value = 0; // 默认在进度条
-    _btnIndex.value = 1; // 默认选中播放/暂停（索引1）
+    _btnIndex.value = 0; // 默认选中倍速（索引0）
     _resetHideTimer();
   }
 
@@ -2676,6 +2666,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   bool _handleKeyEvent(KeyEvent event) {
+    // 子菜单打开时放行所有按键，让 Flutter 对话框自行处理
+    if (_isSubMenuOpen) return false;
+
     final key = event.logicalKey;
     final isSelect = key == LogicalKeyboardKey.select ||
         key == LogicalKeyboardKey.enter;
@@ -2704,7 +2697,12 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     // 面板隐藏时
     if (_panelRow.value == -1) {
       if (isSelect) {
-        ctr.playerStatus.isPlaying ? ctr.pause() : ctr.play();
+        if (ctr.playerStatus.isPlaying) {
+          ctr.pause();
+          _showPanel();
+        } else {
+          ctr.play();
+        }
         return true;
       } else if (key == LogicalKeyboardKey.arrowLeft ||
           key == LogicalKeyboardKey.arrowRight) {
@@ -2745,6 +2743,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   void _handleNativeKey(String key, String action, bool isRepeat) {
+    if (_isSubMenuOpen) return;
     if (action != 'down') return;
     if (key == 'arrowUp') {
       _onKey('up');
@@ -2776,75 +2775,107 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     super.dispose();
   }
 
-  void _showSpeedPicker() {
-    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
-    showDialog(
+  Future<T?> _showTVDialog<T>({
+    required String title,
+    required List<_TVDialogOption<T>> options,
+  }) async {
+    _isSubMenuOpen = true;
+    _hideTimer?.cancel();
+    final result = await showDialog<T>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('播放速度'),
-        content: Wrap(
-          spacing: 8,
-          children: speeds
-            .map((s) => ChoiceChip(
-              label: Text('${s}x'),
-              selected: ctr.playbackSpeed == s,
-              onSelected: (_) {
-                ctr.setPlaybackSpeed(s);
-                Navigator.of(ctx).pop();
-              },
-            ))
-            .toList(),
-        ),
+      barrierColor: Colors.black54,
+      builder: (ctx) => SimpleDialog(
+        backgroundColor: const Color(0xE0202020),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 18)),
+        children: options.map((opt) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(opt.value),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            child: Text(
+              opt.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: opt.isSelected ? Colors.lightBlueAccent : Colors.white,
+                fontSize: 16,
+                fontWeight: opt.isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
+    _isSubMenuOpen = false;
+    _resetHideTimer();
+    return result;
   }
 
-  void _showQualityPicker() {
+  void _showSpeedPicker() async {
+    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
+    final result = await _showTVDialog<double>(
+      title: '播放速度',
+      options: speeds.map((s) => _TVDialogOption(
+        label: '${s}x',
+        value: s,
+        isSelected: ctr.playbackSpeed == s,
+      )).toList(),
+    );
+    if (result != null) {
+      ctr.setPlaybackSpeed(result);
+    }
+  }
+
+  void _showQualityPicker() async {
     final vdc = widget.videoDetailController;
     if (vdc == null) return;
     final aq = vdc.data.acceptQuality;
     final ad = vdc.data.acceptDesc;
     if (aq == null || ad == null) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('画质'),
-        content: Wrap(
-          spacing: 8,
-          children: List.generate(aq.length, (i) => ChoiceChip(
-            label: Text(i < ad.length ? '${ad[i]}' : '未知'),
-            selected: vdc.currentVideoQa.value?.code == aq[i],
-            onSelected: (_) {
-              vdc.currentVideoQa.value = VideoQuality.fromCode(aq[i]);
-              vdc.updatePlayer();
-              Navigator.of(ctx).pop();
-              _panelRow.value = -1;
-            },
-          )),
-        ),
-      ),
+    final result = await _showTVDialog<int>(
+      title: '画质',
+      options: List.generate(aq.length, (i) => _TVDialogOption(
+        label: i < ad.length ? '${ad[i]}' : '未知',
+        value: aq[i],
+        isSelected: vdc.currentVideoQa.value?.code == aq[i],
+      )),
     );
+    if (result != null) {
+      vdc.currentVideoQa.value = VideoQuality.fromCode(result);
+      vdc.updatePlayer();
+      _panelRow.value = -1;
+    }
   }
 
-  void _showFitPicker() {
+  void _showFitPicker() async {
     final fits = [
       VideoFitType.contain, VideoFitType.cover, VideoFitType.fill,
       VideoFitType.fitWidth, VideoFitType.fitHeight,
     ];
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('画面比例'),
-        content: Wrap(
-          spacing: 8,
-          children: fits.map((f) => ChoiceChip(
-            label: Text(f.desc),
-            selected: ctr.videoFit.value == f,
-            onSelected: (_) { ctr.videoFit.value = f; Navigator.of(ctx).pop(); },
-          )).toList(),
-        ),
-      ),
+    final result = await _showTVDialog<VideoFitType>(
+      title: '画面比例',
+      options: fits.map((f) => _TVDialogOption(
+        label: f.desc,
+        value: f,
+        isSelected: ctr.videoFit.value == f,
+      )).toList(),
     );
+    if (result != null) {
+      ctr.videoFit.value = result;
+    }
+  }
+
+  void _showDanmakuSettings() async {
+    _isSubMenuOpen = true;
+    _hideTimer?.cancel();
+    await showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => _TVDanmakuSettingsDialog(ctr: ctr),
+    );
+    _isSubMenuOpen = false;
+    _resetHideTimer();
   }
 
   @override
@@ -2981,4 +3012,146 @@ class _TVBtnItem {
   final String label;
   final VoidCallback onTap;
   const _TVBtnItem(this.icon, this.label, this.onTap);
+}
+
+class _TVDialogOption<T> {
+  final String label;
+  final T value;
+  final bool isSelected;
+  const _TVDialogOption({
+    required this.label,
+    required this.value,
+    this.isSelected = false,
+  });
+}
+
+class _TVDanmakuSettingsDialog extends StatefulWidget {
+  final PlPlayerController ctr;
+  const _TVDanmakuSettingsDialog({required this.ctr});
+
+  @override
+  State<_TVDanmakuSettingsDialog> createState() =>
+      _TVDanmakuSettingsDialogState();
+}
+
+class _TVDanmakuSettingsDialogState extends State<_TVDanmakuSettingsDialog> {
+  late bool _enabled = widget.ctr.enableShowDanmaku.value;
+  late double _fontScale = DanmakuOptions.danmakuFontScale;
+  late double _opacity = widget.ctr.danmakuOpacity.value;
+  late double _area = DanmakuOptions.danmakuShowArea;
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleDialog(
+      backgroundColor: const Color(0xE0202020),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: const Text('弹幕设置',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontSize: 18)),
+      children: [
+        // 弹幕开关
+        SimpleDialogOption(
+          onPressed: () {
+            setState(() => _enabled = !_enabled);
+            widget.ctr.enableShowDanmaku.value = _enabled;
+          },
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          child: Text(
+            '弹幕: ${_enabled ? "开" : "关"}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+        const Divider(color: Colors.white24, height: 1),
+        // 字号
+        _buildSectionTitle('字号'),
+        ..._buildOptions<double>(
+          options: {0.8: '小', 1.0: '中', 1.4: '大'},
+          current: _fontScale,
+          onSelected: (v) {
+            setState(() => _fontScale = v);
+            DanmakuOptions.danmakuFontScale = v;
+            _saveDanmakuSettings();
+          },
+        ),
+        const Divider(color: Colors.white24, height: 1),
+        // 透明度
+        _buildSectionTitle('透明度'),
+        ..._buildOptions<double>(
+          options: {0.3: '30%', 0.5: '50%', 0.7: '70%', 1.0: '100%'},
+          current: _opacity,
+          onSelected: (v) {
+            setState(() => _opacity = v);
+            widget.ctr.danmakuOpacity.value = v;
+            _saveDanmakuSettings();
+          },
+        ),
+        const Divider(color: Colors.white24, height: 1),
+        // 显示区域
+        _buildSectionTitle('显示区域'),
+        ..._buildOptions<double>(
+          options: {0.25: '1/4屏', 0.5: '半屏', 0.75: '3/4屏', 1.0: '全屏'},
+          current: _area,
+          onSelected: (v) {
+            setState(() => _area = v);
+            DanmakuOptions.danmakuShowArea = v;
+            _saveDanmakuSettings();
+          },
+        ),
+        const SizedBox(height: 8),
+        // 关闭按钮
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(context).pop(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          child: const Text(
+            '完成',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.lightBlueAccent,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, top: 10, bottom: 4),
+      child: Text(title,
+        style: const TextStyle(color: Colors.white54, fontSize: 13)),
+    );
+  }
+
+  List<Widget> _buildOptions<T>({
+    required Map<T, String> options,
+    required T current,
+    required ValueChanged<T> onSelected,
+  }) {
+    return options.entries.map((e) {
+      final selected = e.key == current;
+      return SimpleDialogOption(
+        onPressed: () => onSelected(e.key),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        child: Text(
+          e.value,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.lightBlueAccent : Colors.white,
+            fontSize: 15,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  void _saveDanmakuSettings() {
+    DanmakuOptions.save(widget.ctr.danmakuOpacity.value);
+    widget.ctr.danmakuController?.updateOption(
+      DanmakuOptions.get(notFullscreen: true, speed: widget.ctr.playbackSpeed),
+    );
+  }
 }
