@@ -2743,7 +2743,11 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   void _handleNativeKey(String key, String action, bool isRepeat) {
-    if (_isSubMenuOpen) return;
+    if (_isSubMenuOpen) {
+      // 子菜单打开时，将上下键转发给子菜单的回调
+      if (action == 'down') _subMenuKeyCallback?.call(key);
+      return;
+    }
     if (action != 'down') return;
     if (key == 'arrowUp') {
       _onKey('up');
@@ -2751,6 +2755,9 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       _onKey('down');
     }
   }
+
+  // 子菜单按键回调
+  void Function(String)? _subMenuKeyCallback;
 
   static const _channel = MethodChannel('PiliPlus');
 
@@ -2775,38 +2782,150 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     super.dispose();
   }
 
-  Future<T?> _showTVDialog<T>({
+  /// 通用右侧边栏选择器
+  Future<T?> _showSidePanel<T>({
     required String title,
     required List<_TVDialogOption<T>> options,
   }) async {
     _isSubMenuOpen = true;
     _hideTimer?.cancel();
-    final result = await showDialog<T>(
+    int selectedIndex = options.indexWhere((o) => o.isSelected);
+    if (selectedIndex < 0) selectedIndex = 0;
+
+    final completer = Completer<T?>();
+    late StateSetter setSheetState;
+
+    _subMenuKeyCallback = (key) {
+      if (key == 'arrowUp') {
+        setSheetState(() {
+          selectedIndex = (selectedIndex - 1).clamp(0, options.length - 1);
+        });
+      } else if (key == 'arrowDown') {
+        setSheetState(() {
+          selectedIndex = (selectedIndex + 1).clamp(0, options.length - 1);
+        });
+      }
+    };
+
+    bool handled = false;
+
+    showGeneralDialog(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (ctx) => SimpleDialog(
-        backgroundColor: const Color(0xE0202020),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 18)),
-        children: options.map((opt) {
-          return SimpleDialogOption(
-            onPressed: () => Navigator.of(ctx).pop(opt.value),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            child: Text(
-              opt.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: opt.isSelected ? Colors.lightBlueAccent : Colors.white,
-                fontSize: 16,
-                fontWeight: opt.isSelected ? FontWeight.bold : FontWeight.normal,
+      barrierDismissible: true,
+      barrierLabel: '',
+      barrierColor: Colors.black38,
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (ctx, _, __) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: const Color(0xF0181818),
+            borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+            child: SizedBox(
+              width: 280,
+              child: StatefulBuilder(
+                builder: (ctx, setState) {
+                  setSheetState = setState;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                        child: Text(title,
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      ),
+                      const Divider(color: Colors.white24, height: 1),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: options.length,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemBuilder: (ctx, i) {
+                            final opt = options[i];
+                            final isSel = i == selectedIndex;
+                            return GestureDetector(
+                              onTap: () {
+                                if (!handled) {
+                                  handled = true;
+                                  Navigator.of(ctx).pop();
+                                  completer.complete(opt.value);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                color: isSel ? Colors.white12 : null,
+                                child: Row(
+                                  children: [
+                                    if (isSel)
+                                      const Padding(
+                                        padding: EdgeInsets.only(right: 8),
+                                        child: Icon(Icons.chevron_right, color: Colors.lightBlueAccent, size: 20),
+                                      ),
+                                    Expanded(
+                                      child: Text(opt.label,
+                                        style: TextStyle(
+                                          color: isSel ? Colors.lightBlueAccent : (opt.isSelected ? Colors.lightBlueAccent : Colors.white),
+                                          fontSize: 16,
+                                          fontWeight: isSel || opt.isSelected ? FontWeight.bold : FontWeight.normal,
+                                        )),
+                                    ),
+                                    if (opt.isSelected)
+                                      const Icon(Icons.check, color: Colors.lightBlueAccent, size: 18),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
-          );
-        }).toList(),
-      ),
-    );
+          ),
+        );
+      },
+    ).then((_) {
+      if (!handled && !completer.isCompleted) completer.complete(null);
+    });
+
+    // OK 和返回键处理
+    bool subKeyHandler(KeyEvent event) {
+      if (_isSubMenuOpen && event is KeyDownEvent) {
+        final k = event.logicalKey;
+        if (k == LogicalKeyboardKey.select || k == LogicalKeyboardKey.enter) {
+          if (!handled) {
+            handled = true;
+            Navigator.of(context).pop();
+            completer.complete(options[selectedIndex].value);
+          }
+          return true;
+        } else if (k == LogicalKeyboardKey.goBack || k == LogicalKeyboardKey.escape) {
+          if (!handled) {
+            handled = true;
+            Navigator.of(context).pop();
+            completer.complete(null);
+          }
+          return true;
+        } else if (k == LogicalKeyboardKey.arrowUp) {
+          setSheetState(() {
+            selectedIndex = (selectedIndex - 1).clamp(0, options.length - 1);
+          });
+          return true;
+        } else if (k == LogicalKeyboardKey.arrowDown) {
+          setSheetState(() {
+            selectedIndex = (selectedIndex + 1).clamp(0, options.length - 1);
+          });
+          return true;
+        }
+      }
+      return false;
+    }
+
+    HardwareKeyboard.instance.addHandler(subKeyHandler);
+    final result = await completer.future;
+    HardwareKeyboard.instance.removeHandler(subKeyHandler);
+    _subMenuKeyCallback = null;
     _isSubMenuOpen = false;
     _resetHideTimer();
     return result;
@@ -2814,17 +2933,13 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
 
   void _showSpeedPicker() async {
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
-    final result = await _showTVDialog<double>(
+    final result = await _showSidePanel<double>(
       title: '播放速度',
       options: speeds.map((s) => _TVDialogOption(
-        label: '${s}x',
-        value: s,
-        isSelected: ctr.playbackSpeed == s,
+        label: '${s}x', value: s, isSelected: ctr.playbackSpeed == s,
       )).toList(),
     );
-    if (result != null) {
-      ctr.setPlaybackSpeed(result);
-    }
+    if (result != null) ctr.setPlaybackSpeed(result);
   }
 
   void _showQualityPicker() async {
@@ -2833,7 +2948,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     final aq = vdc.data.acceptQuality;
     final ad = vdc.data.acceptDesc;
     if (aq == null || ad == null) return;
-    final result = await _showTVDialog<int>(
+    final result = await _showSidePanel<int>(
       title: '画质',
       options: List.generate(aq.length, (i) => _TVDialogOption(
         label: i < ad.length ? '${ad[i]}' : '未知',
@@ -2849,33 +2964,42 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   void _showFitPicker() async {
-    final fits = [
-      VideoFitType.contain, VideoFitType.cover, VideoFitType.fill,
-      VideoFitType.fitWidth, VideoFitType.fitHeight,
-    ];
-    final result = await _showTVDialog<VideoFitType>(
+    final fits = [VideoFitType.contain, VideoFitType.cover, VideoFitType.fill,
+      VideoFitType.fitWidth, VideoFitType.fitHeight];
+    final result = await _showSidePanel<VideoFitType>(
       title: '画面比例',
       options: fits.map((f) => _TVDialogOption(
-        label: f.desc,
-        value: f,
-        isSelected: ctr.videoFit.value == f,
+        label: f.desc, value: f, isSelected: ctr.videoFit.value == f,
       )).toList(),
     );
-    if (result != null) {
-      ctr.videoFit.value = result;
-    }
+    if (result != null) ctr.videoFit.value = result;
   }
 
   void _showDanmakuSettings() async {
-    _isSubMenuOpen = true;
-    _hideTimer?.cancel();
-    await showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (ctx) => _TVDanmakuSettingsDialog(ctr: ctr),
+    final on = ctr.enableShowDanmaku.value;
+    final result = await _showSidePanel<String>(
+      title: '弹幕设置',
+      options: [
+        _TVDialogOption(label: on ? '关闭弹幕' : '开启弹幕', value: 'toggle', isSelected: false),
+        _TVDialogOption(label: '透明度 30%', value: 'op_30', isSelected: ctr.danmakuOpacity.value == 0.3),
+        _TVDialogOption(label: '透明度 50%', value: 'op_50', isSelected: ctr.danmakuOpacity.value == 0.5),
+        _TVDialogOption(label: '透明度 70%', value: 'op_70', isSelected: ctr.danmakuOpacity.value == 0.7),
+        _TVDialogOption(label: '透明度 100%', value: 'op_100', isSelected: ctr.danmakuOpacity.value == 1.0),
+      ],
     );
-    _isSubMenuOpen = false;
-    _resetHideTimer();
+    if (result == null) return;
+    switch (result) {
+      case 'toggle':
+        ctr.enableShowDanmaku.value = !ctr.enableShowDanmaku.value;
+      case 'op_30':
+        ctr.danmakuOpacity.value = 0.3;
+      case 'op_50':
+        ctr.danmakuOpacity.value = 0.5;
+      case 'op_70':
+        ctr.danmakuOpacity.value = 0.7;
+      case 'op_100':
+        ctr.danmakuOpacity.value = 1.0;
+    }
   }
 
   @override
@@ -3025,133 +3149,3 @@ class _TVDialogOption<T> {
   });
 }
 
-class _TVDanmakuSettingsDialog extends StatefulWidget {
-  final PlPlayerController ctr;
-  const _TVDanmakuSettingsDialog({required this.ctr});
-
-  @override
-  State<_TVDanmakuSettingsDialog> createState() =>
-      _TVDanmakuSettingsDialogState();
-}
-
-class _TVDanmakuSettingsDialogState extends State<_TVDanmakuSettingsDialog> {
-  late bool _enabled = widget.ctr.enableShowDanmaku.value;
-  late double _fontScale = DanmakuOptions.danmakuFontScale;
-  late double _opacity = widget.ctr.danmakuOpacity.value;
-  late double _area = DanmakuOptions.danmakuShowArea;
-
-  @override
-  Widget build(BuildContext context) {
-    return SimpleDialog(
-      backgroundColor: const Color(0xE0202020),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: const Text('弹幕设置',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white, fontSize: 18)),
-      children: [
-        // 弹幕开关
-        SimpleDialogOption(
-          onPressed: () {
-            setState(() => _enabled = !_enabled);
-            widget.ctr.enableShowDanmaku.value = _enabled;
-          },
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          child: Text(
-            '弹幕: ${_enabled ? "开" : "关"}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
-        ),
-        const Divider(color: Colors.white24, height: 1),
-        // 字号
-        _buildSectionTitle('字号'),
-        ..._buildOptions<double>(
-          options: {0.8: '小', 1.0: '中', 1.4: '大'},
-          current: _fontScale,
-          onSelected: (v) {
-            setState(() => _fontScale = v);
-            DanmakuOptions.danmakuFontScale = v;
-            _saveDanmakuSettings();
-          },
-        ),
-        const Divider(color: Colors.white24, height: 1),
-        // 透明度
-        _buildSectionTitle('透明度'),
-        ..._buildOptions<double>(
-          options: {0.3: '30%', 0.5: '50%', 0.7: '70%', 1.0: '100%'},
-          current: _opacity,
-          onSelected: (v) {
-            setState(() => _opacity = v);
-            widget.ctr.danmakuOpacity.value = v;
-            _saveDanmakuSettings();
-          },
-        ),
-        const Divider(color: Colors.white24, height: 1),
-        // 显示区域
-        _buildSectionTitle('显示区域'),
-        ..._buildOptions<double>(
-          options: {0.25: '1/4屏', 0.5: '半屏', 0.75: '3/4屏', 1.0: '全屏'},
-          current: _area,
-          onSelected: (v) {
-            setState(() => _area = v);
-            DanmakuOptions.danmakuShowArea = v;
-            _saveDanmakuSettings();
-          },
-        ),
-        const SizedBox(height: 8),
-        // 关闭按钮
-        SimpleDialogOption(
-          onPressed: () => Navigator.of(context).pop(),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          child: const Text(
-            '完成',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.lightBlueAccent,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 24, top: 10, bottom: 4),
-      child: Text(title,
-        style: const TextStyle(color: Colors.white54, fontSize: 13)),
-    );
-  }
-
-  List<Widget> _buildOptions<T>({
-    required Map<T, String> options,
-    required T current,
-    required ValueChanged<T> onSelected,
-  }) {
-    return options.entries.map((e) {
-      final selected = e.key == current;
-      return SimpleDialogOption(
-        onPressed: () => onSelected(e.key),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        child: Text(
-          e.value,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? Colors.lightBlueAccent : Colors.white,
-            fontSize: 15,
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  void _saveDanmakuSettings() {
-    DanmakuOptions.save(widget.ctr.danmakuOpacity.value);
-    widget.ctr.danmakuController?.updateOption(
-      DanmakuOptions.get(notFullscreen: true, speed: widget.ctr.playbackSpeed),
-    );
-  }
-}
