@@ -89,26 +89,6 @@ void main() async {
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 
-  // 接收 Android 转发的 UP/DOWN 按键
-  const MethodChannel('PiliPlus').setMethodCallHandler((call) async {
-    if (call.method == 'tvKey') {
-      final args = call.arguments as Map;
-      final key = args['key'] as String;
-      final action = args['action'] as String;
-      final isRepeat = args['isRepeat'] as bool;
-      final cb = TVKeyHandler.instance?.callback;
-      if (cb != null) {
-        cb(key, action, isRepeat);
-      } else if (action == 'down') {
-        // 非播放器页面：模拟焦点移动
-        final direction = key == 'arrowUp'
-            ? TraversalDirection.up
-            : TraversalDirection.down;
-        FocusManager.instance.primaryFocus?.focusInDirection(direction);
-      }
-    }
-  });
-
   // TV immersive mode
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   SystemChrome.setSystemUIOverlayStyle(
@@ -125,6 +105,27 @@ void main() async {
   if (Pref.dynamicColor) {
     await TVApp.initPlatformState();
   }
+
+  // 接收 Android 转发的 UP/DOWN 按键（在 runApp 后通过 postFrameCallback 注册，确保 Catcher2 不覆盖）
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    const MethodChannel('PiliPlus').setMethodCallHandler((call) async {
+      if (call.method == 'tvKey') {
+        final args = call.arguments as Map;
+        final key = args['key'] as String;
+        final action = args['action'] as String;
+        final isRepeat = args['isRepeat'] as bool;
+        final cb = TVKeyHandler.instance?.callback;
+        if (cb != null) {
+          cb(key, action, isRepeat);
+        } else if (action == 'down') {
+          final direction = key == 'arrowUp'
+              ? TraversalDirection.up
+              : TraversalDirection.down;
+          FocusManager.instance.primaryFocus?.focusInDirection(direction);
+        }
+      }
+    });
+  });
 
   if (Pref.enableLog) {
     final customParameters = {
