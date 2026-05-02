@@ -34,28 +34,14 @@ class MainActivity : AudioServiceActivity() {
     var playerActive = false
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (isTV && playerActive) {
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_UP,
-                KeyEvent.KEYCODE_DPAD_DOWN,
-                KeyEvent.KEYCODE_VOLUME_UP,
-                KeyEvent.KEYCODE_VOLUME_DOWN,
-                KeyEvent.KEYCODE_BACK -> {
-                    val action = when (event.action) {
-                        KeyEvent.ACTION_DOWN -> "down"
-                        KeyEvent.ACTION_UP -> "up"
-                        else -> return true
-                    }
-                    val key = when (event.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_VOLUME_UP -> "arrowUp"
-                        KeyEvent.KEYCODE_BACK -> "back"
-                        else -> "arrowDown"
-                    }
-                    val isRepeat = event.repeatCount > 0
-                    methodChannel.invokeMethod("tvKey", mapOf("key" to key, "action" to action, "isRepeat" to isRepeat))
-                    return true
-                }
+        if (isTV && playerActive && event.keyCode == KeyEvent.KEYCODE_BACK) {
+            val action = when (event.action) {
+                KeyEvent.ACTION_DOWN -> "down"
+                KeyEvent.ACTION_UP -> "up"
+                else -> return true
             }
+            methodChannel.invokeMethod("tvKey", mapOf("key" to "back", "action" to action, "isRepeat" to false))
+            return true
         }
         return super.dispatchKeyEvent(event)
     }

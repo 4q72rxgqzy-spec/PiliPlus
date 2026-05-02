@@ -2718,6 +2718,11 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       return false;
     }
 
+    final isUpDown = key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.audioVolumeUp ||
+        key == LogicalKeyboardKey.audioVolumeDown;
+
     // === 面板隐藏时 ===
     if (_panelRow.value == -1) {
       if (isSelect) {
@@ -2729,11 +2734,14 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
           ctr.seekTo(ctr.position + Duration(seconds: s));
         }
         return true;
+      } else if (isUpDown) {
+        _showPanel();
+        return true;
       } else if (key == LogicalKeyboardKey.contextMenu) {
         _showPanel();
         return true;
       } else if (isBack) {
-        return false; // 放行，退出播放页
+        return false;
       }
       return false;
     }
@@ -2764,6 +2772,13 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         _resetHideTimer();
       }
       return true;
+    } else if (isUpDown) {
+      if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.audioVolumeUp) {
+        if (row == 1) { _panelRow.value = 0; _resetHideTimer(); }
+      } else {
+        if (row == 0) { _panelRow.value = 1; _resetHideTimer(); }
+      }
+      return true;
     } else if (key == LogicalKeyboardKey.contextMenu) {
       _panelRow.value = -1;
       return true;
@@ -2772,23 +2787,14 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   void _handleNativeKey(String key, String action, bool isRepeat) {
-    Utils.reportError('TV_NATIVE: key=$key action=$action panel=${_panelRow.value} subMenu=$_isSubMenuOpen hash=$hashCode');
+    if (key != 'back' || action != 'down') return;
+    Utils.reportError('TV_BACK: panel=${_panelRow.value} subMenu=$_isSubMenuOpen hash=$hashCode');
     if (_isSubMenuOpen) {
-      if (action == 'down') _subMenuKeyCallback?.call(key);
-      return;
-    }
-    if (action != 'down') return;
-    if (key == 'arrowUp') {
-      _onKey('up');
-    } else if (key == 'arrowDown') {
-      _onKey('down');
-    } else if (key == 'back') {
-      if (_panelRow.value != -1) {
-        _panelRow.value = -1;
-      } else {
-        // 面板隐藏时，手动触发返回
-        ctr.onPopInvokedWithResult(false, null);
-      }
+      _subMenuKeyCallback?.call('back');
+    } else if (_panelRow.value != -1) {
+      _panelRow.value = -1;
+    } else {
+      ctr.onPopInvokedWithResult(false, null);
     }
   }
 
