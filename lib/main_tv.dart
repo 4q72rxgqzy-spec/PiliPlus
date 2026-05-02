@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/pages_tv/tv_app.dart';
-import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
@@ -86,26 +85,6 @@ void main() async {
   Request();
   Request.setCookie();
   RequestUtils.syncHistoryStatus();
-
-  const MethodChannel('PiliPlus').setMethodCallHandler((call) async {
-    if (call.method == 'tvKey') {
-      final args = call.arguments as Map;
-      final key = args['key'] as String;
-      final action = args['action'] as String;
-      final isRepeat = args['isRepeat'] as bool;
-      final handler = TVKeyHandler.instance;
-      if (handler != null) {
-        handler.handleNativeKey(key, action, isRepeat);
-      } else {
-        // 播放器未激活，关闭拦截并执行默认行为
-        const MethodChannel('PiliPlus')
-            .invokeMethod('setPlayerActive', {'active': false});
-        if (key == 'back' && action == 'down') {
-          Get.back();
-        }
-      }
-    }
-  });
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 

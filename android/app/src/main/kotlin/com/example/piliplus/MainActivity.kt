@@ -16,7 +16,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
-import android.view.KeyEvent
 import android.view.WindowManager.LayoutParams
 import androidx.core.net.toUri
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -29,22 +28,6 @@ import java.io.File
 class MainActivity : AudioServiceActivity() {
     private lateinit var methodChannel: MethodChannel
     private var isFoldable = false
-    private val isTV = BuildConfig.IS_TV
-
-    var playerActive = false
-
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (isTV && playerActive && event.keyCode == KeyEvent.KEYCODE_BACK) {
-            val action = when (event.action) {
-                KeyEvent.ACTION_DOWN -> "down"
-                KeyEvent.ACTION_UP -> "up"
-                else -> return true
-            }
-            methodChannel.invokeMethod("tvKey", mapOf("key" to "back", "action" to action, "isRepeat" to false))
-            return true
-        }
-        return super.dispatchKeyEvent(event)
-    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -52,11 +35,6 @@ class MainActivity : AudioServiceActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "PiliPlus")
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
-                "setPlayerActive" -> {
-                    playerActive = call.argument<Boolean>("active") ?: false
-                    result.success(null)
-                    return@setMethodCallHandler
-                }
                 "back" -> back();
 
                 "biliSendCommAntifraud" -> {

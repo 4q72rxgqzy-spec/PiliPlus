@@ -2559,16 +2559,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   }
 }
 
-class TVKeyHandler {
-  static TVKeyHandler? instance;
-
-  void Function(String key, String action, bool isRepeat)? _callback;
-
-  void handleNativeKey(String key, String action, bool isRepeat) {
-    _callback?.call(key, action, isRepeat);
-  }
-}
-
 class _TVPlayerKeyHandler extends StatefulWidget {
   const _TVPlayerKeyHandler({
     required this.plPlayerController,
@@ -2672,14 +2662,12 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     final isBack = key == LogicalKeyboardKey.goBack ||
         key == LogicalKeyboardKey.escape;
 
-    // 子菜单打开时：只处理返回键关闭子菜单，其余放行
+    // Sub-menu open: let the sub-menu's own HardwareKeyboard handler take priority
     if (_isSubMenuOpen) {
-      // 子菜单的 subKeyHandler 会处理 OK/上下/返回
-      // 这里不拦截，让 subKeyHandler 先处理
       return false;
     }
 
-    // 长按 OK 加速（任何时候）
+    // Long-press OK = speed boost (works regardless of panel state)
     if (isSelect && event is KeyRepeatEvent) {
       if (!_isLongPressing) {
         _isLongPressing = true;
@@ -2696,7 +2684,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       return true;
     }
 
-    // OK KeyUp：暂停/播放（只在非长按时）
+    // OK KeyUp: play/pause (only when not long-pressing)
     if (isSelect && event is KeyUpEvent) {
       if (!_isLongPressing) {
         if (_panelRow.value == -1) {
@@ -2723,10 +2711,21 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
         key == LogicalKeyboardKey.audioVolumeUp ||
         key == LogicalKeyboardKey.audioVolumeDown;
 
-    // === 面板隐藏时 ===
+    // === BACK key ===
+    if (isBack) {
+      if (_panelRow.value != -1) {
+        // Panel shown: close panel
+        _panelRow.value = -1;
+        return true;
+      }
+      // Panel hidden: let PopScope / system handle navigation
+      return false;
+    }
+
+    // === Panel hidden ===
     if (_panelRow.value == -1) {
       if (isSelect) {
-        return true; // 消费 KeyDown，等 KeyUp 处理
+        return true; // consume KeyDown, KeyUp handles it above
       } else if (key == LogicalKeyboardKey.arrowLeft ||
           key == LogicalKeyboardKey.arrowRight) {
         if (!ctr.isLive) {
@@ -2740,29 +2739,21 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
       } else if (key == LogicalKeyboardKey.contextMenu) {
         _showPanel();
         return true;
-      } else if (isBack) {
-        return false;
       }
       return false;
     }
 
-    // === 面板显示时 ===
+    // === Panel shown ===
     final row = _panelRow.value;
-    if (isBack) {
-      _panelRow.value = -1;
-      return true;
-    } else if (isSelect) {
-      return true; // 消费 KeyDown，KeyUp 在上面处理
+    if (isSelect) {
+      return true; // consume KeyDown, KeyUp handles it above
     } else if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
-      Utils.reportError('TV_LR: row=$row key=${key.keyLabel} hash=$hashCode');
       if (row == 0 && !ctr.isLive) {
-        // 进度条行：快进快退
         final s = key == LogicalKeyboardKey.arrowLeft ? -10 : 10;
         ctr.seekTo(ctr.position + Duration(seconds: s));
         _resetHideTimer();
       } else if (row == 1) {
-        // 按钮行：切换按钮（不 seek）
         final max = _buttons.length - 1;
         if (key == LogicalKeyboardKey.arrowLeft) {
           _btnIndex.value = (_btnIndex.value - 1).clamp(0, max);
@@ -2786,51 +2777,16 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     return true;
   }
 
-  void _handleNativeKey(String key, String action, bool isRepeat) {
-    if (key != 'back' || action != 'down') return;
-    Utils.reportError('TV_BACK: panel=${_panelRow.value} subMenu=$_isSubMenuOpen hash=$hashCode');
-    if (_isSubMenuOpen) {
-      _subMenuKeyCallback?.call('back');
-    } else if (_panelRow.value != -1) {
-      _panelRow.value = -1;
-    } else {
-      ctr.onPopInvokedWithResult(false, null);
-    }
-  }
-
-  // 子菜单按键回调
-  void Function(String)? _subMenuKeyCallback;
-
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
-    _registerNativeHandler();
-    const MethodChannel('PiliPlus').invokeMethod('setPlayerActive', {'active': true});
-    Utils.reportError('TV_LIFE: initState hash=$hashCode');
-  }
-
-  @override
-  void didUpdateWidget(covariant _TVPlayerKeyHandler oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _registerNativeHandler();
-    Utils.reportError('TV_LIFE: didUpdateWidget hash=$hashCode');
-  }
-
-  void _registerNativeHandler() {
-    TVKeyHandler.instance = TVKeyHandler().._callback = _handleNativeKey;
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
-    final isOurs = TVKeyHandler.instance?._callback == _handleNativeKey;
-    Utils.reportError('TV_LIFE: dispose hash=$hashCode isOurs=$isOurs');
-    if (isOurs) {
-      TVKeyHandler.instance?._callback = null;
-      TVKeyHandler.instance = null;
-    }
     _showSpeedIndicator.dispose();
     _panelRow.dispose();
     _btnIndex.dispose();
@@ -2850,24 +2806,6 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     final completer = Completer<T?>();
     late StateSetter setSheetState;
     bool handled = false;
-
-    _subMenuKeyCallback = (key) {
-      if (key == 'arrowUp') {
-        setSheetState(() {
-          selectedIndex = (selectedIndex - 1).clamp(0, options.length - 1);
-        });
-      } else if (key == 'arrowDown') {
-        setSheetState(() {
-          selectedIndex = (selectedIndex + 1).clamp(0, options.length - 1);
-        });
-      } else if (key == 'back') {
-        if (!handled) {
-          handled = true;
-          Navigator.of(context).pop();
-          completer.complete(null);
-        }
-      }
-    };
 
     showGeneralDialog(
       context: context,
@@ -2995,7 +2933,6 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     HardwareKeyboard.instance.addHandler(subKeyHandler);
     final result = await completer.future;
     HardwareKeyboard.instance.removeHandler(subKeyHandler);
-    _subMenuKeyCallback = null;
     _isSubMenuOpen = false;
     _resetHideTimer();
     return result;
@@ -3080,37 +3017,48 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      widget.child,
-      // 倍速提示
-      ValueListenableBuilder<double?>(
-        valueListenable: _showSpeedIndicator,
-        builder: (context, speed, _) {
-          if (speed == null) return const SizedBox.shrink();
-          return Positioned(
-            right: 24, top: 24,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text('${speed}x',
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
-          );
-        },
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _panelRow,
+    builder: (context, _) => PopScope(
+      canPop: _panelRow.value == -1 && !_isSubMenuOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _panelRow.value != -1) {
+          _panelRow.value = -1;
+        }
+      },
+      child: Stack(
+        children: [
+          widget.child,
+          // Speed indicator
+          ValueListenableBuilder<double?>(
+            valueListenable: _showSpeedIndicator,
+            builder: (context, speed, _) {
+              if (speed == null) return const SizedBox.shrink();
+              return Positioned(
+                right: 24, top: 24,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('${speed}x',
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              );
+            },
+          ),
+          // TV control panel
+          ListenableBuilder(
+            listenable: Listenable.merge([_panelRow, _btnIndex]),
+            builder: (context, _) {
+              if (_panelRow.value == -1) return const SizedBox.shrink();
+              return Obx(() => _buildPanel());
+            },
+          ),
+        ],
       ),
-      // TV 控制面板
-      ListenableBuilder(
-        listenable: Listenable.merge([_panelRow, _btnIndex]),
-        builder: (context, _) {
-          if (_panelRow.value == -1) return const SizedBox.shrink();
-          return Obx(() => _buildPanel());
-        },
-      ),
-    ],
+    ),
   );
 
   Widget _buildPanel() {
