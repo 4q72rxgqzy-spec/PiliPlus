@@ -98,7 +98,7 @@ void main() async {
         cb(args['key'] as String, args['action'] as String, args['isRepeat'] as bool);
       } else {
         // 播放器不活跃，关闭拦截 (lazy cleanup)
-        debugPrint('[TV] main_tv lazy cleanup: callback is null for key=${args['key']}, sending setPlayerActive(false)');
+        Utils.reportError('[TV] main_tv lazy cleanup: callback is null for key=${args['key']}, sending setPlayerActive(false)');
         const MethodChannel('PiliPlus').invokeMethod('setPlayerActive', {'active': false});
       }
     }
