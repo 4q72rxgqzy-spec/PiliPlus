@@ -93,7 +93,7 @@ void main() async {
   const MethodChannel('PiliPlus').setMethodCallHandler((call) async {
     if (call.method == 'tvKey') {
       final args = call.arguments as Map;
-      final cb = TVKeyHandler.instance?._callback;
+      final cb = TVKeyHandler.instance?.callback;
       if (cb != null) {
         cb(args['key'] as String, args['action'] as String, args['isRepeat'] as bool);
       } else {

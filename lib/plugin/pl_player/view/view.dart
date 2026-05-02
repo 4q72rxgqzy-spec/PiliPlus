@@ -2561,9 +2561,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
 class TVKeyHandler {
   static TVKeyHandler? instance;
-  void Function(String key, String action, bool isRepeat)? _callback;
+  void Function(String key, String action, bool isRepeat)? callback;
   void handleNativeKey(String key, String action, bool isRepeat) {
-    _callback?.call(key, action, isRepeat);
+    callback?.call(key, action, isRepeat);
   }
 }
 
@@ -2812,7 +2812,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleKeyEvent);
-    TVKeyHandler.instance = TVKeyHandler().._callback = _handleNativeKey;
+    TVKeyHandler.instance = TVKeyHandler()..callback = _handleNativeKey;
     const MethodChannel('PiliPlus').invokeMethod('setPlayerActive', {'active': true});
   }
 
@@ -2822,7 +2822,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     // 清空 callback 但保留 instance（避免第二个视频空隙期问题）
     // 主动关闭 playerActive（避免首页首次按键被吞）
-    TVKeyHandler.instance?._callback = null;
+    TVKeyHandler.instance?.callback = null;
     const MethodChannel('PiliPlus').invokeMethod('setPlayerActive', {'active': false});
     _showSpeedIndicator.dispose();
     _panelRow.dispose();
@@ -2949,7 +2949,7 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
 
     // OK 和返回键处理
     bool subKeyHandler(KeyEvent event) {
-      if (_isSubMenuOpen && (event is KeyDownEvent || event is KeyRepeatEvent)) {
+      if (_isSubMenuOpen.value && (event is KeyDownEvent || event is KeyRepeatEvent)) {
         final k = event.logicalKey;
         if (k == LogicalKeyboardKey.select || k == LogicalKeyboardKey.enter) {
           if (!handled) {
