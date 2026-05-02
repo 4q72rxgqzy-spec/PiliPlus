@@ -2820,10 +2820,10 @@ class _TVPlayerKeyHandlerState extends State<_TVPlayerKeyHandler> {
   void dispose() {
     _hideTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
-    // 清空 callback 但保留 instance（避免第二个视频空隙期问题）
-    // 主动关闭 playerActive（避免首页首次按键被吞）
+    // 清空 callback 但保留 instance，不发 playerActive=false
+    // （避免异步消息乱序导致第二个视频 playerActive 被覆盖为 false）
+    // 首页通过 main_tv.dart 的 lazy cleanup 恢复
     TVKeyHandler.instance?.callback = null;
-    const MethodChannel('PiliPlus').invokeMethod('setPlayerActive', {'active': false});
     _showSpeedIndicator.dispose();
     _panelRow.dispose();
     _btnIndex.dispose();
