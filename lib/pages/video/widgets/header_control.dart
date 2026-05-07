@@ -140,7 +140,7 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   List<Widget>? get timeBatteryWidgets {
     if (_showCurrTime) {
       return [
-        if (_showBatteryLevel) ...[
+        if (_showBatteryLevel && !PlatformUtils.isTV) ...[
           Obx(
             () {
               final batteryLevel = _batteryLevel.value;
@@ -1731,7 +1731,12 @@ class HeaderControlState extends State<HeaderControl>
 
     const btnWidth = 40.0;
     const btnHeight = 34.0;
-    const btnStyle = ButtonStyle(padding: WidgetStatePropertyAll(.zero));
+    final btnStyle = ButtonStyle(
+      padding: const WidgetStatePropertyAll(.zero),
+      overlayColor: PlatformUtils.isTV
+          ? const WidgetStatePropertyAll(Colors.white24)
+          : null,
+    );
 
     return AppBar(
       elevation: 0,
@@ -1806,7 +1811,7 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   );
                 }),
-              if (!isFileSource) ...[
+              if (!isFileSource && !PlatformUtils.isTV) ...[
                 if (!isFSOrPip) ...[
                   if (videoDetailCtr.isUgc)
                     SizedBox(
@@ -1883,7 +1888,8 @@ class HeaderControlState extends State<HeaderControl>
                       : const SizedBox.shrink(),
                 ),
               ],
-              if (!isPortrait || isFullScreen || PlatformUtils.isDesktop) ...[
+              if ((!isPortrait || isFullScreen || PlatformUtils.isDesktop) &&
+                  !PlatformUtils.isTV) ...[
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
@@ -1948,8 +1954,9 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               ),
-              if (Platform.isAndroid ||
-                  (PlatformUtils.isDesktop && !isFullScreen))
+              if (!PlatformUtils.isTV &&
+                  (Platform.isAndroid ||
+                      (PlatformUtils.isDesktop && !isFullScreen)))
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
@@ -2047,20 +2054,21 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: IconButton(
-                  tooltip: "更多设置",
-                  style: btnStyle,
-                  onPressed: showSettingSheet,
-                  icon: const Icon(
-                    Icons.more_vert_outlined,
-                    size: 19,
-                    color: Colors.white,
+              if (!PlatformUtils.isTV)
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: IconButton(
+                    tooltip: "更多设置",
+                    style: btnStyle,
+                    onPressed: showSettingSheet,
+                    icon: const Icon(
+                      Icons.more_vert_outlined,
+                      size: 19,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           if (showFSActionItem)
@@ -2097,7 +2105,8 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-                if (introController case final UgcIntroController ugc)
+                if (!PlatformUtils.isTV)
+                  if (introController case final UgcIntroController ugc)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
@@ -2157,19 +2166,20 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-                SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
-                  child: ActionItem(
-                    expand: false,
-                    icon: const Icon(
-                      FontAwesomeIcons.shareFromSquare,
-                      color: Colors.white,
+                if (!PlatformUtils.isTV)
+                  SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: ActionItem(
+                      expand: false,
+                      icon: const Icon(
+                        FontAwesomeIcons.shareFromSquare,
+                        color: Colors.white,
+                      ),
+                      onTap: () => introController.actionShareVideo(context),
+                      semanticsLabel: '分享',
                     ),
-                    onTap: () => introController.actionShareVideo(context),
-                    semanticsLabel: '分享',
                   ),
-                ),
               ],
             ),
         ],

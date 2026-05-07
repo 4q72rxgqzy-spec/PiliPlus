@@ -1,3 +1,4 @@
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 
 class ComBtn extends StatelessWidget {
@@ -22,17 +23,35 @@ class ComBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = SizedBox(
-      width: width,
-      height: height,
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        onSecondaryTap: onSecondaryTap,
-        behavior: HitTestBehavior.opaque,
-        child: icon,
-      ),
-    );
+    Widget child;
+    if (PlatformUtils.isTV) {
+      child = SizedBox(
+        width: width,
+        height: height,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            borderRadius: BorderRadius.circular(8),
+            focusColor: Colors.white24,
+            child: Center(child: icon),
+          ),
+        ),
+      );
+    } else {
+      child = SizedBox(
+        width: width,
+        height: height,
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          onSecondaryTap: onSecondaryTap,
+          behavior: HitTestBehavior.opaque,
+          child: icon,
+        ),
+      );
+    }
     if (tooltip != null) {
       return Tooltip(message: tooltip, child: child);
     }
